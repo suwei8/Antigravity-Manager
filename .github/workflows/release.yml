@@ -81,7 +81,7 @@ jobs:
 
       - name: Prepare Flatpak Source
         run: |
-          mkdir -p flatpak-build-source
+          mkdir -p build-aux/flatpak/flatpak-build-source
           # Extract the deb package
           # Find the .deb file
           DEB_FILE=$(find deb-package -name "*.deb" | head -n 1)
@@ -92,11 +92,11 @@ jobs:
           
           # Extract content. Try different compression extensions just in case
           if [ -f data.tar.zst ]; then
-            tar --zstd -xf data.tar.zst -C flatpak-build-source
+            tar --zstd -xf data.tar.zst -C build-aux/flatpak/flatpak-build-source
           elif [ -f data.tar.xz ]; then
-            tar -xf data.tar.xz -C flatpak-build-source
+            tar -xf data.tar.xz -C build-aux/flatpak/flatpak-build-source
           elif [ -f data.tar.gz ]; then
-            tar -xzf data.tar.gz -C flatpak-build-source
+            tar -xzf data.tar.gz -C build-aux/flatpak/flatpak-build-source
           else
             echo "Unknown compression for data.tar"
             ls -la
@@ -104,7 +104,7 @@ jobs:
           fi
           
           echo "Extracted payload:"
-          ls -R flatpak-build-source
+          ls -R build-aux/flatpak/flatpak-build-source
 
       - name: Build Flatpak
         run: |
