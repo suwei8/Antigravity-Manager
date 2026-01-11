@@ -1,0 +1,22 @@
+app-id: com.lbjlaq.antigravity-tools
+runtime: org.gnome.Platform
+runtime-version: '46'
+sdk: org.gnome.Sdk
+command: antigravity-tools
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --share=network
+modules:
+  - name: antigravity-tools
+    buildsystem: simple
+    build-commands:
+      # Copy the contents of the 'usr' directory from the unpacked Deb to /app
+      - cp -r usr/* /app/
+    sources:
+      # This path is relative to where flatpak-builder is run. 
+      # The workflow will unpack the deb into 'flatpak-build-source'
+      - type: dir
+        path: flatpak-build-source

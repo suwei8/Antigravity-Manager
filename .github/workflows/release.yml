@@ -21,8 +21,6 @@ jobs:
             args: "--target universal-apple-darwin"
           - platform: "ubuntu-22.04"
             args: ""
-          - platform: "ubuntu-24.04-arm"
-            args: ""
           - platform: "windows-latest"
             args: ""
 
@@ -56,6 +54,7 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
+          
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -67,3 +66,121 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+  release-linux-arm-compat:
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: ubuntu:22.04
+      options: --user root
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y curl wget build-essential libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf pkg-config libsoup-3.0-dev javascriptcoregtk-4.1 libjavascriptcoregtk-4.1-dev libnm-dev xdg-utils git
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Node.js setup
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      # Tauri Action inside container might need specific handling or just run commands manually if action fails.
+      # But tauri-action usually works if dependencies are met.
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Antigravity Tools ${{ github.ref_name }}"
+          releaseBody: "See the assets to download this version and install."
+          releaseDraft: true
+          prerelease: false
+          args: "--target aarch64-unknown-linux-gnu"
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm-deb
+          path: src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+  flatpak-bundle:
+    needs: release-linux-arm-compat
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-arm-deb
+          path: deb-package
+
+      - name: Install Flatpak and Builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Prepare Flatpak Source
+        run: |
+          mkdir -p flatpak-build-source
+          # Extract the deb package
+          # Find the .deb file
+          DEB_FILE=$(find deb-package -name "*.deb" | head -n 1)
+          echo "Processing $DEB_FILE"
+          
+          # Extract the data.tar.zst (or xz/gz) from the .deb
+          ar x "$DEB_FILE"
+          
+          # Extract content. Try different compression extensions just in case
+          if [ -f data.tar.zst ]; then
+            tar --zstd -xf data.tar.zst -C flatpak-build-source
+          elif [ -f data.tar.xz ]; then
+            tar -xf data.tar.xz -C flatpak-build-source
+          elif [ -f data.tar.gz ]; then
+            tar -xzf data.tar.gz -C flatpak-build-source
+          else
+            echo "Unknown compression for data.tar"
+            ls -la
+            exit 1
+          fi
+          
+          echo "Extracted payload:"
+          ls -R flatpak-build-source
+
+      - name: Build Flatpak
+        run: |
+          # Install SDKs required by manifest
+          flatpak install --user -y flathub org.gnome.Sdk//46 org.gnome.Platform//46
+          
+          # Build
+          mkdir -p flatpak-build-dir
+          flatpak-builder --user --repo=flatpak-repo --force-clean flatpak-build-dir build-aux/flatpak/com.lbjlaq.antigravity-tools.yml
+          
+          # Bundle
+          mkdir -p distribute
+          flatpak build-bundle flatpak-repo distribute/antigravity-tools_arm64.flatpak com.lbjlaq.antigravity-tools
+
+      - name: Upload Flatpak to Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: distribute/antigravity-tools_arm64.flatpak
