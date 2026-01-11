@@ -12,15 +12,17 @@ use std::sync::Mutex;
 static ACCOUNT_INDEX_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
 // ... existing constants ...
-const DATA_DIR: &str = ".antigravity_tools";
+const DATA_DIR: &str = "antigravity-tools";
 const ACCOUNTS_INDEX: &str = "accounts.json";
 const ACCOUNTS_DIR: &str = "accounts";
 
 // ... existing functions get_data_dir, get_accounts_dir, load_account_index, save_account_index ...
 /// 获取数据目录路径
 pub fn get_data_dir() -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
-    let data_dir = home.join(DATA_DIR);
+    let data_dir = dirs::data_dir()
+        .ok_or("无法获取用户数据目录")?
+        .join("antigravity-tools");
+    // Compatibility: If old folder in home exists, maybe migrate? For now just use proper XDG path.
     
     // 确保目录存在
     if !data_dir.exists() {

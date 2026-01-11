@@ -15,6 +15,20 @@ fn get_current_exe_path() -> Option<std::path::PathBuf> {
 
 /// 检查 Antigravity 是否在运行
 pub fn is_antigravity_running() -> bool {
+    #[cfg(target_os = "linux")]
+    if is_flatpak() {
+        // Flatpak 环境下，使用 host pgrep 检查
+        // 使用 -x 精确匹配 antigravity，避免匹配到 antigravity-tools (本程序)
+        // 注意：假如目标程序叫 Antigravity (大写)，pgrep -x antigravity 可能匹配不到，取决于 pgrep 实现
+        // 但根据 check_standard_locations，Linux 下二进制通常是小写 antigravity
+        let output = Command::new("flatpak-spawn")
+            .args(["--host", "pgrep", "-x", "antigravity"])
+            .output();
+        
+        // pgrep 返回 0 表示找到进程
+        return output.map(|o| o.status.success()).unwrap_or(false);
+    }
+
     let mut system = System::new();
     system.refresh_processes(sysinfo::ProcessesToUpdate::All);
 
@@ -357,6 +371,36 @@ fn get_antigravity_pids() -> Vec<u32> {
 pub fn close_antigravity(timeout_secs: u64) -> Result<(), String> {
     crate::modules::logger::log_info("正在关闭 Antigravity...");
 
+    #[cfg(target_os = "linux")]
+    if is_flatpak() {
+        crate::modules::logger::log_info("Flatpak 环境：使用 pkill 关闭宿主机进程");
+        // 1. SIGTERM
+        let _ = Command::new("flatpak-spawn")
+            .args(["--host", "pkill", "-x", "antigravity"])
+            .output();
+            
+        // 等待退出
+        let graceful_timeout = (timeout_secs * 7) / 10;
+        let start = std::time::Instant::now();
+        while start.elapsed() < Duration::from_secs(graceful_timeout) {
+            if !is_antigravity_running() {
+                crate::modules::logger::log_info("Antigravity 已优雅关闭");
+                return Ok(());
+            }
+            thread::sleep(Duration::from_millis(500));
+        }
+        
+        // 2. SIGKILL
+        if is_antigravity_running() {
+             crate::modules::logger::log_warn("超时，强制关闭 (SIGKILL)");
+             let _ = Command::new("flatpak-spawn")
+                .args(["--host", "pkill", "-9", "-x", "antigravity"])
+                .output();
+        }
+        
+        return Ok(());
+    }
+
     #[cfg(target_os = "windows")]
     {
         // Windows: 改为使用 PID 进行精准关闭，以支持并存多版本或自定义文件名
@@ -645,17 +689,29 @@ pub fn close_antigravity(timeout_secs: u64) -> Result<(), String> {
             // 阶段 1: 优雅退出 (SIGTERM)
             if let Some(pid) = main_pid {
                 crate::modules::logger::log_info(&format!("尝试优雅关闭主进程 {} (SIGTERM)", pid));
-                let _ = Command::new("kill")
-                    .args(["-15", &pid.to_string()])
-                    .output();
+                if is_flatpak() {
+                    let _ = Command::new("flatpak-spawn")
+                        .args(["--host", "kill", "-15", &pid.to_string()])
+                        .output();
+                } else {
+                    let _ = Command::new("kill")
+                        .args(["-15", &pid.to_string()])
+                        .output();
+                }
             } else {
                 crate::modules::logger::log_warn(
                     "未识别出明确的 Linux 主进程，将对所有关联进程发送 SIGTERM",
                 );
                 for pid in &pids {
-                    let _ = Command::new("kill")
-                        .args(["-15", &pid.to_string()])
-                        .output();
+                    if is_flatpak() {
+                        let _ = Command::new("flatpak-spawn")
+                            .args(["--host", "kill", "-15", &pid.to_string()])
+                            .output();
+                    } else {
+                        let _ = Command::new("kill")
+                            .args(["-15", &pid.to_string()])
+                            .output();
+                    }
                 }
             }
 
@@ -679,7 +735,13 @@ pub fn close_antigravity(timeout_secs: u64) -> Result<(), String> {
                         remaining_pids.len()
                     ));
                     for pid in &remaining_pids {
-                        let _ = Command::new("kill").args(["-9", &pid.to_string()]).output();
+                        if is_flatpak() {
+                            let _ = Command::new("flatpak-spawn")
+                                .args(["--host", "kill", "-9", &pid.to_string()])
+                                .output();
+                        } else {
+                            let _ = Command::new("kill").args(["-9", &pid.to_string()]).output();
+                        }
                     }
                     thread::sleep(Duration::from_secs(1));
                 }
@@ -701,6 +763,11 @@ pub fn close_antigravity(timeout_secs: u64) -> Result<(), String> {
     Ok(())
 }
 
+/// 检查是否运行在 Flatpak 环境中
+fn is_flatpak() -> bool {
+    std::path::Path::new("/.flatpak-info").exists()
+}
+
 /// 启动 Antigravity
 pub fn start_antigravity() -> Result<(), String> {
     crate::modules::logger::log_info("正在启动 Antigravity...");
@@ -711,6 +778,65 @@ pub fn start_antigravity() -> Result<(), String> {
         .as_ref()
         .and_then(|c| c.antigravity_executable.clone());
     let args = config.and_then(|c| c.antigravity_args.clone());
+
+    #[cfg(target_os = "linux")]
+    {
+        if is_flatpak() {
+            crate::modules::logger::log_info("检测到 Flatpak 环境，将使用 flatpak-spawn --host 启动");
+            
+            let mut cmd = Command::new("flatpak-spawn");
+            cmd.arg("--host");
+            
+            // 自动检测逻辑
+            let executable = if let Some(path) = manual_path.as_deref() {
+                path.to_string()
+            } else {
+                // 尝试检测常见路径
+                let candidates = vec![
+                    "/usr/bin/antigravity",
+                    "/usr/local/bin/antigravity",
+                    "/opt/Antigravity/antigravity",
+                    "/usr/share/antigravity/antigravity",
+                ];
+                
+                let mut found = None;
+                for path in candidates {
+                    // 使用 test -f 检查是否存在
+                    let status = Command::new("flatpak-spawn")
+                        .args(["--host", "test", "-f", path])
+                        .status()
+                        .ok();
+                    if let Some(s) = status {
+                        if s.success() {
+                            found = Some(path);
+                            break;
+                        }
+                    }
+                }
+                
+                // 如果没找到，尝试 expand 用户路径? setenv PATH? 
+                // 简单起见，如果找不到绝对路径，就退回到 "antigravity" (依靠 PATH)
+                found.unwrap_or("antigravity").to_string()
+            };
+
+            cmd.arg(&executable);
+
+            // 添加启动参数
+            if let Some(ref args) = args {
+                for arg in args {
+                    cmd.arg(arg);
+                }
+            }
+
+            cmd.spawn().map_err(|e| format!("Flatpak 启动失败: {}", e))?;
+            
+            crate::modules::logger::log_info(&format!(
+                "Antigravity 启动命令已发送 (Flatpak Host: {}, 参数: {:?})",
+                executable, args
+            ));
+            return Ok(());
+        }
+    }
 
     if let Some(path_str_init) = manual_path {
         #[allow(unused_mut)]

@@ -9,12 +9,23 @@ finish-args:
   - --socket=wayland
   - --device=dri
   - --share=network
+  # File access for export and persistence
+  - --filesystem=home
+  - --filesystem=xdg-config/Antigravity
+  # Tray icon support
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --talk-name=com.canonical.AppMenu.Registrar
+  # Allow flatpak-spawn --host
+  - --talk-name=org.freedesktop.Flatpak
 modules:
   - name: antigravity-tools
     buildsystem: simple
     build-commands:
       # Copy the contents of the 'usr' directory from the unpacked Deb to /app
       - cp -r usr/* /app/
+      # Copy bundled dependencies
+      - mkdir -p /app/lib
+      - if [ -d "lib" ]; then cp -d -r lib/* /app/lib/; fi
       # Rename binary to match command (Tauri uses underscore, we want dash)
       - mv /app/bin/antigravity_tools /app/bin/antigravity-tools
       

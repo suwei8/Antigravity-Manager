@@ -2,6 +2,7 @@ use crate::utils::protobuf;
 use base64::{engine::general_purpose, Engine as _};
 use rusqlite::Connection;
 use std::path::PathBuf;
+use std::fs;
 
 fn get_antigravity_path() -> Option<PathBuf> {
     if let Ok(config) = crate::modules::config::load_app_config() {
@@ -55,11 +56,8 @@ pub fn get_db_path() -> Result<PathBuf, String> {
         Ok(PathBuf::from(appdata).join("Antigravity\\User\\globalStorage\\state.vscdb"))
     }
 
-    #[cfg(target_os = "linux")]
-    {
         let home = dirs::home_dir().ok_or("无法获取 Home 目录")?;
         Ok(home.join(".config/Antigravity/User/globalStorage/state.vscdb"))
-    }
 }
 
 /// 注入 Token 到数据库
@@ -69,6 +67,11 @@ pub fn inject_token(
     refresh_token: &str,
     expiry: i64,
 ) -> Result<String, String> {
+    // 0. 确保父目录存在
+    if let Some(parent) = db_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("创建数据库目录失败: {}", e))?;
+    }
+
     // 1. 打开数据库
     let conn = Connection::open(db_path).map_err(|e| format!("打开数据库失败: {}", e))?;
 

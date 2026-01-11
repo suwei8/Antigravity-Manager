@@ -45,3 +45,11 @@ __pycache__/
 # Reference projects (for development only)
 
 DOCKER_DEPLOYMENT.md
+
+# Flatpak build artifacts
+.flatpak-builder/
+flatpak-build-dir/
+flatpak-repo/
+build-aux/flatpak/bundled_libs/
+build-aux/flatpak/flatpak-build-source/
+distribute/
