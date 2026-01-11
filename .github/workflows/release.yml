@@ -124,3 +124,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: distribute/antigravity-tools_arm64.flatpak
+      
+      - name: Upload Flatpak as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm-flatpak
+          path: distribute/antigravity-tools_arm64.flatpak
+          if-no-files-found: error
