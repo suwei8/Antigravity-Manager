@@ -15,6 +15,10 @@ modules:
     build-commands:
       # Copy the contents of the 'usr' directory from the unpacked Deb to /app
       - cp -r usr/* /app/
+      # Rename binary to match command (Tauri uses underscore, we want dash)
+      - mv /app/bin/antigravity_tools /app/bin/antigravity-tools
+      # Update .desktop file to point to renamed binary
+      - find /app/share/applications -name "*.desktop" -exec sed -i 's/Exec=antigravity_tools/Exec=antigravity-tools/g' {} +
     sources:
       # This path is relative to where flatpak-builder is run. 
       # The workflow will unpack the deb into 'flatpak-build-source'
