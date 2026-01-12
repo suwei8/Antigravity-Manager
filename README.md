@@ -26,7 +26,9 @@
 ### 2. 部署教程 (Deployment)
 
 #### Setp 1. 准备环境 (必做)
-在安装之前，您必须安装 Flatpak 并添加 Flathub 仓库源，以便自动下载所需的依赖环境 (GNOME Runtime)。
+在安装之前，您必须安装 Flatpak 并添加 Flathub 仓库源。
+
+> **注意**: 如果您的 Flatpak 版本较旧（如 Ubuntu 20.04），可能会遇到元数据下载错误。请务必**手动安装运行时**。
 
 在终端运行以下命令：
 
@@ -36,6 +38,9 @@ sudo apt update && sudo apt install flatpak -y
 
 # 2. 添加 Flathub 仓库源 (关键步骤！)
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+# 3. 手动安装依赖运行时 (解决 "runtime not found" 错误)
+flatpak install --user flathub org.gnome.Platform//46 org.gnome.Sdk//46 -y
 ```
 
 #### Step 2. 安装应用
@@ -43,10 +48,10 @@ flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flath
 在下载目录打开终端，运行以下命令进行安装：
 
 ```bash
-# 安装 Flatpak 包 (无需 root 权限)
+# 安装 Flatpak 包
 flatpak install --user antigravity-tools_arm64.flatpak
 ```
-*(如果提示是否安装依赖，请输入 `y` 确认)*
+*(如果提示是否安装或导入，请输入 `y` 确认)*
 
 #### Step 3. 启动应用
 
@@ -59,6 +64,9 @@ flatpak run com.lbjlaq.antigravity-tools
 ---
 
 ## ⚙️ 常见问题
+
+*   **安装失败提示 `summary exceeded maximum size`?**
+    这通常是因为 `flatpak` 版本过低。请尝试运行上面的 **"手动安装依赖运行时"** 命令来单独安装环境，然后再安装本应用。
 
 *   **没有图标？**
     Flatpak 安装后通常会自动注册图标。如果未在应用菜单中看到，可以尝试注销并重新登录。
