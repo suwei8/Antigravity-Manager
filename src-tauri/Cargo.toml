@@ -1,3 +1,6 @@
+[workspace]
+members = ["core", "cli", "server"]
+
 [package]
 name = "antigravity_tools"
 version = "3.3.20"
@@ -21,6 +24,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-opener = "2"
+antigravity-core = { path = "core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1.10", features = ["v4", "serde"] }
@@ -62,3 +66,4 @@ tracing-appender = "0.2.4"
 tracing-log = "0.2.0"
 tauri-plugin-autostart = "2.5.1"
 sha2 = "0.10"
+clap = { version = "4.5.54", features = ["derive"] }
