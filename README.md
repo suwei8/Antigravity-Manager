@@ -25,25 +25,33 @@
 
 ### 2. 部署教程 (Deployment)
 
-#### Setp 1. 准备环境 (必做)
-在安装之前，您必须安装 Flatpak 并添加 Flathub 仓库源。
-
-> **注意**: 如果您的 Flatpak 版本较旧（如 Ubuntu 20.04），可能会遇到元数据下载错误。请务必**手动安装运行时**。
-
-在终端运行以下命令：
+#### Setp 1. 升级 Flatpak (Ubuntu 20.04 必做)
+Ubuntu 20.04 默认的 Flatpak 版本过旧，会导致下载错误 (`exceeded maximum size`)。
+**您必须执行以下命令升级 Flatpak**，否则无法安装。
 
 ```bash
-# 1. 安装 Flatpak (如果未安装)
+# 1. 添加 Flatpak 官方 PPA 源
+sudo add-apt-repository ppa:alexlarsson/flatpak -y
+
+# 2. 更新并升级 Flatpak
 sudo apt update && sudo apt install flatpak -y
 
-# 2. 添加 Flathub 仓库源 (关键步骤！)
+# 3. 重启系统或重新登录 (确保路径生效)
+# 这一步很重要，否则可能找不到安装的应用
+```
+
+#### Step 2. 准备环境
+升级完 Flatpak 后，执行以下命令添加仓库和依赖：
+
+```bash
+# 1. 添加 Flathub 仓库源
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
-# 3. 手动安装依赖运行时 (解决 "runtime not found" 错误)
+# 2. 手动安装运行时
 flatpak install --user flathub org.gnome.Platform//46 org.gnome.Sdk//46 -y
 ```
 
-#### Step 2. 安装应用
+#### Step 3. 安装应用
 
 在下载目录打开终端，运行以下命令进行安装：
 
@@ -51,9 +59,8 @@ flatpak install --user flathub org.gnome.Platform//46 org.gnome.Sdk//46 -y
 # 安装 Flatpak 包
 flatpak install --user antigravity-tools_arm64.flatpak
 ```
-*(如果提示是否安装或导入，请输入 `y` 确认)*
 
-#### Step 3. 启动应用
+#### 4. 启动应用
 
 安装完成后，可以通过以下命令启动应用：
 
@@ -65,8 +72,8 @@ flatpak run com.lbjlaq.antigravity-tools
 
 ## ⚙️ 常见问题
 
-*   **安装失败提示 `summary exceeded maximum size`?**
-    这通常是因为 `flatpak` 版本过低。请尝试运行上面的 **"手动安装依赖运行时"** 命令来单独安装环境，然后再安装本应用。
+*   **错误：`summary exceeded maximum size`**
+    请务必按照 **Setup 1** 中的步骤添加 PPA 并升级 Flatpak。这是因为旧版 Flatpak 不支持现在的 Flathub 数据量。
 
 *   **没有图标？**
     Flatpak 安装后通常会自动注册图标。如果未在应用菜单中看到，可以尝试注销并重新登录。
