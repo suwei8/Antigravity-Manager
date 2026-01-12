@@ -19,9 +19,16 @@
 本版本为 **Linux ARM64** 专用 Flatpak 构建版本。
 
 ### 1. 下载安装包
-点击下方链接下载 Flatpak 二进制包：
 
+您可以点击链接下载，或在终端使用 `wget` 下载：
+
+**方式 A：直接点击下载**
 👉 **[antigravity-tools_arm64.flatpak](https://github.com/suwei8/Antigravity-Manager/releases/download/v3.3.20/antigravity-tools_arm64.flatpak)**
+
+**方式 B：终端下载 (推荐)**
+```bash
+wget https://github.com/suwei8/Antigravity-Manager/releases/download/v3.3.20/antigravity-tools_arm64.flatpak
+```
 
 ### 2. 部署教程 (Deployment)
 
